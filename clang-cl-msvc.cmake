@@ -69,7 +69,7 @@ init_user_prop(LLVM_VER)
 init_user_prop(CLANG_VER)
 
 if(LLVM_VER STREQUAL "")
-  message(STATUS "LLVM_VER not set assuming version 7"
+  message(STATUS "LLVM_VER not set assuming version 7")
   set(LLVM_VER 7)
 endif()
 
@@ -161,7 +161,6 @@ set(CROSS_TOOLCHAIN_FLAGS_NATIVE "${_CTF_NATIVE_DEFAULT}" CACHE STRING "")
 set(COMPILE_FLAGS
     -D_CRT_SECURE_NO_WARNINGS
     --target=${TRIPLE_ARCH}-windows-msvc
-    -fms-compatibility-version=19.11
     -Wno-unused-command-line-argument # Needed to accept projects pushing both -Werror and /MP
     -imsvc "${MSVC_INCLUDE}"
     -imsvc "${WINSDK_INCLUDE}/ucrt"
@@ -232,3 +231,16 @@ set(CMAKE_SHARED_LINKER_FLAGS "${_CMAKE_SHARED_LINKER_FLAGS_INITIAL} ${LINK_FLAG
 # control which libraries they require.
 set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)
 set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)
+
+# static link
+set(CompilerFlags
+        CMAKE_CXX_FLAGS
+        CMAKE_CXX_FLAGS_DEBUG
+        CMAKE_CXX_FLAGS_RELEASE
+        CMAKE_C_FLAGS
+        CMAKE_C_FLAGS_DEBUG
+        CMAKE_C_FLAGS_RELEASE
+        )
+foreach(CompilerFlag ${CompilerFlags})
+  string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
+endforeach()

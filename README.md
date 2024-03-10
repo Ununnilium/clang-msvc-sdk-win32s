@@ -1,15 +1,114 @@
-# Cross toolchain configuration for using clang-cl on non-Windows hosts to target MSVC.
+# Cross toolchain configuration for using clang-cl on non-Windows hosts to target Windows 3.1 with WIN32S.
 
-Based on the CMake toolchain file of the LLVM project
+Based on https://github.com/ProGTX/clang-msvc-sdk.
 
-https://github.com/llvm-mirror/llvm/blob/master/cmake/platforms/WinMsvc.cmake
+
+## Introduction: Manually compile for Windows 3.1 with WIN32S with Clang
+
+1.  Install _Microsoft Windows Server 2003 DDK (5.2.3790)_ on Windows, this creates a folder c:\WINDDK which can be moved to Linux (e.g. to HOME)
+2.  Create the following test program hello.c:
+    ```C
+    #include <windows.h>
+    #include <stdio.h>
+
+    int main()
+    {
+        FILE *fptr;
+        fptr = fopen("c:\\filename.txt", "w");
+        fprintf(fptr, "Some text");
+        fclose(fptr);
+        return MessageBox(NULL, "hello, world", "caption", 0);
+    }
+    ```
+3.  Build it with
+    ```bash
+    clang-cl-17 hello.c -o hello.exe --target=i386-pc-windows-msvc -fuse-ld=lld /imsvc ~/WINDDK/3790/inc/crt /imsvc ~/WINDDK/3790/inc/wnet /link /libpath:~/WINDDK/3790/lib/wnet/i386 /subsystem:WINDOWS,3.10 /entry:mainCRTStartup user32.lib
+    ```
+    or
+    ```bash
+    clang-17 -o hello.exe -static -target i386-pc-windows-msvc -isystem ~/WINDDK/3790/inc/crt -isystem ~/WINDDK/3790/inc/wnet -fuse-ld=lld -L~/WINDDK/3790/lib/wnet/i386 -luser32  hello.c -Xlinker /subsystem:WINDOWS,3.10 -Xlinker /force:multiple -Xlinker /entry:mainCRTStartup
+    ```
+/entry:mainCRTStartup allows using "main" not only for /subsystem:console applications (see [here](https://stackoverflow.com/a/13872211)).
+
+
+## Installation of Windows 2003 DDK
+1.  Install _Microsoft Windows Server 2003 DDK (5.2.3790)_ on Windows, this creates a folder c:\WINDDK which can be moved to Linux, e.g. to HOME
+2.  Create a folder ~/WINDDK/clang with this structure (symlinks):
+    ```
+    clang
+    ├── MSVC_BASE
+    │   ├── include -> ../../3790/inc/crt
+    │   └── lib
+    │       ├── x64 -> ../../../3790/lib/wnet/amd64
+    │       └── x86 -> ../../../3790/lib/wnet/i386
+    └── WINSDK_BASE
+        ├── Include
+        │   └── 3790
+        │       └── um -> ../../../../3790/inc/wnet
+        └── Lib
+            └── 3790
+                └── um
+                    ├── x64 -> ../../../../../3790/lib/wnet/amd64
+                    └── x86 -> ../../../../../3790/lib/wnet/i386
+    ```
+3.  Create the following symlinks in WINDDK/3790/inc/wnet:
+    ```
+    Windows.h -> WINDOWS.H
+    comcat.h -> COMCAT.H
+    commctrl.h -> COMMCTRL.H
+    commdlg.h -> COMMDLG.H
+    cpl.h -> CPL.H
+    dde.h -> DDE.H
+    ddeml.h -> DDEML.H
+    diskguid.h -> DISKGUID.H
+    imm.h -> IMM.H
+    nspapi.h -> NSPAPI.H
+    objbase.h -> OBJBASE.H
+    objerror.h -> OBJERROR.H
+    poppack.h -> POPPACK.H
+    prsht.h -> PRSHT.H
+    pshpack1.h -> PSHPACK1.H
+    pshpack2.h -> PSHPACK2.H
+    pshpack4.h -> PSHPACK4.H
+    pshpack8.h -> PSHPACK8.H
+    setupapi.h -> SETUPAPI.H
+    shellapi.h -> SHELLAPI.H
+    uuids.h -> UUIDS.H
+    vddsvc.h -> VDDSVC.H
+    wdbgexts.h -> WDBGEXTS.H
+    winbase.h -> WINBASE.H
+    windef.h -> WINDEF.H
+    windows.h -> WINDOWS.H
+    windowsx.h -> WINDOWSX.H
+    winerror.h -> WINERROR.H
+    wingdi.h -> WINGDI.H
+    winnls.h -> WINNLS.H
+    winnls32.h -> WINNLS32.H
+    winnt.h -> WINNT.H
+    winperf.h -> WINPERF.H
+    winreg.h -> WINREG.H
+    winresrc.h -> WINRESRC.H
+    winspool.h -> WINSPOOL.H
+    wintrust.h -> WINtrust.H
+    winuser.h -> WINUSER.H
+    winver.h -> WINVER.H
+    ```
+
+4.  Test the example:
+    ```bash
+    cd example
+    mkdir build
+    cd build
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=../../clang-cl-msvc.cmake -DMSVC_BASE=/home/fheller/Downloads/WINDDK/clang/MSVC_BASE -DWINSDK_VER=3790 -DWINSDK_BASE=/home/fheller/Downloads/WINDDK/clang/WINSDK_BASE -DCLANG_VER=17 -DLLVM_VER=17 -DCMAKE_C_COMPILER=/usr/bin/clang-cl-17 -DCMAKE_CXX_COMPILER=/usr/bin/clang-cl-17 -DCMAKE_LINKER=/usr/bin/lld-link-17 -DHOST_ARCH=x86 && cmake --build .
+    wine hello-world.exe
+    ```
 
 ## Usage 
 
 ```
 cmake -G Ninja
    -DCMAKE_TOOLCHAIN_FILE=/path/to/clang-cl-msvc.cmake
-   -DHOST_ARCH=[arm64|armv7|arm|i686|x86|x86_64|x64]
+   -DHOST_ARCH=[i686|x86|x86_64|x64]
    -DMSVC_BASE=/path/to/msvc
    -DWINSDK_BASE=/path/to/winsdk
    -DWINSDK_VER=windows sdk version folder name
